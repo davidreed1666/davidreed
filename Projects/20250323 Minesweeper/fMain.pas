@@ -233,6 +233,7 @@ begin
   HideCaret(SpinEdit2.Handle);
 
   FMineClick := -1;
+  FCellsRemaining := Length(aGrid);
   dtStart := Now;
   bInGame := True;
   Caption := 'MineSweeper by David Reed';
@@ -315,7 +316,7 @@ begin
       if aGrid[x] = 9 then
         ShowCell(x);
   end
-  else if aGrid[ACell] < 9 then begin
+  else if (aGrid[ACell] < 9) and not aShow[ACell] then begin
     ShowCell(ACell);
     if aGrid[ACell] = 0 then
       AdjacentAction(ACell,ShowAction);
@@ -337,7 +338,7 @@ end;
 procedure TfmMain.ResultMessage(AWinner: boolean);
 begin
   if AWinner then begin
-    lblMessage.Caption := 'WOO HOO! You are a winner!';
+    lblMessage.Caption := 'WOOHOO! You are a winner!';
     Shape1.Brush.Color := $DDFFDD;
     Shape1.Pen.Color := $00DD00;
   end

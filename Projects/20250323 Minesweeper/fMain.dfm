@@ -308,8 +308,6 @@ object fmMain: TfmMain
       Font.Style = [fsBold]
       ParentFont = False
       Layout = tlCenter
-      ExplicitLeft = 1
-      ExplicitTop = 1
       ExplicitWidth = 178
       ExplicitHeight = 17
     end
