@@ -3,7 +3,7 @@ object fmMain: TfmMain
   Top = 0
   BorderIcons = [biSystemMenu]
   BorderStyle = bsToolWindow
-  Caption = 'Minesweeper'
+  Caption = 'MineSweeper - David Reed'
   ClientHeight = 216
   ClientWidth = 238
   Color = clBtnFace
@@ -14,6 +14,7 @@ object fmMain: TfmMain
   Font.Style = []
   Position = poScreenCenter
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
   TextHeight = 15
   object Panel1: TPanel
     AlignWithMargins = True
@@ -27,10 +28,6 @@ object fmMain: TfmMain
     Color = clWhite
     ParentBackground = False
     TabOrder = 0
-    ExplicitLeft = 48
-    ExplicitTop = 160
-    ExplicitWidth = 305
-    ExplicitHeight = 337
     object PaintBox1: TPaintBox
       Left = 2
       Top = 2
@@ -47,9 +44,8 @@ object fmMain: TfmMain
       ParentFont = False
       OnMouseDown = PaintBox1MouseDown
       OnPaint = PaintBox1Paint
-      ExplicitLeft = 6
+      ExplicitLeft = 0
       ExplicitTop = 0
-      ExplicitWidth = 217
     end
     object Image1: TImage
       Left = 6
@@ -272,6 +268,50 @@ object fmMain: TfmMain
       MinValue = 5
       TabOrder = 1
       Value = 9
+    end
+  end
+  object pnlResult: TPanel
+    Left = 6
+    Top = 151
+    Width = 220
+    Height = 34
+    BevelOuter = bvNone
+    Caption = 'WOO HOO! You are a winner! :)'
+    ParentBackground = False
+    TabOrder = 2
+    Visible = False
+    object Shape1: TShape
+      Left = 0
+      Top = 0
+      Width = 220
+      Height = 34
+      Align = alClient
+      Brush.Color = 14540287
+      Pen.Color = 221
+      ExplicitLeft = 8
+      ExplicitTop = 8
+      ExplicitWidth = 65
+      ExplicitHeight = 65
+    end
+    object lblMessage: TLabel
+      Left = 0
+      Top = 0
+      Width = 220
+      Height = 34
+      Align = alClient
+      Alignment = taCenter
+      Caption = 'WOOHOO! You are a winner!'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -13
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsBold]
+      ParentFont = False
+      Layout = tlCenter
+      ExplicitLeft = 1
+      ExplicitTop = 1
+      ExplicitWidth = 178
+      ExplicitHeight = 17
     end
   end
   object ae: TApplicationEvents

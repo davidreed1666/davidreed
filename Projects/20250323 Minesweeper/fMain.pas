@@ -31,7 +31,6 @@
 
   *MineRatePct is the number of mines as a % of total cells. 12 is the default.
   *If CellDim changes from 25 mine and flag don't paint properly - not sure why.
-  *Realized I don't have a game-won test. I'll write that soon.
 
 }
 unit fMain;
@@ -67,6 +66,9 @@ type
     lblMines: TLabel;
     lblTimer: TLabel;
     tm: TTimer;
+    pnlResult: TPanel;
+    Shape1: TShape;
+    lblMessage: TLabel;
     procedure PaintBox1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure PaintBox1Paint(Sender: TObject);
     procedure aeIdle(Sender: TObject; var Done: Boolean);
@@ -74,20 +76,26 @@ type
     procedure SpinEdit1Change(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure tmTimer(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure ShowCell(ACell: integer; AToggleFlag: boolean = False);
   private
     aGrid: array of integer;
     aShow: array of boolean;
-    xGridW: integer;
-    xGridH: integer;
-    xMines: integer;
-    xMineClick: integer;
+    FGridW: integer;
+    FGridH: integer;
+    FMinesDisplay: integer;
+    FMineClick: integer;
     dtStart: TDateTime;
     bInGame: boolean;
+    FBmp: TBitmap;
+    FTotalMines: integer;
+    FCellsRemaining: integer;
     function GetIndexFromMouseCoord(const Ax,Ay: integer): integer;
     procedure AdjacentAction(c: integer; AProc: TAdjacentActionProc);
     procedure IncAction(aCell: integer);
     procedure ShowAction(aCell: integer);
-    procedure DoClickCell(ACell: integer);
+    procedure DoClickCell(ACell: integer; AToggleFlag: boolean = False);
+    procedure ResultMessage(AWinner: boolean);
     // procedure RefreshDisplay;
   public
     procedure NewGame(AWidth,AHeight: integer);
@@ -110,7 +118,16 @@ implementation
 //--------------------------------------------------------------
 procedure TfmMain.FormCreate(Sender: TObject);
 begin
+  FBmp := TBitmap.Create;
   btnNewGame.Click;
+end;
+
+//--------------------------------------------------------------
+// FormDestroy
+//--------------------------------------------------------------
+procedure TfmMain.FormDestroy(Sender: TObject);
+begin
+  FreeAndNil(FBmp);
 end;
 
 //--------------------------------------------------------------
@@ -120,7 +137,7 @@ procedure TfmMain.aeIdle(Sender: TObject; var Done: Boolean);
 var
   s: string;
 begin
-  s := xMines.ToString;
+  s := FMinesDisplay.ToString;
   if s <> lblMines.Caption then
     lblMines.Caption := s;
 end;
@@ -132,6 +149,14 @@ procedure TfmMain.tmTimer(Sender: TObject);
 begin
   if bInGame then
     lblTimer.Caption := FormatDateTime('nn:ss',Now-dtStart);
+end;
+
+//--------------------------------------------------------------
+// SpinEdit1Change
+//--------------------------------------------------------------
+procedure TfmMain.SpinEdit1Change(Sender: TObject);
+begin
+  SpinEdit2.Value := SpinEdit1.Value;
 end;
 
 //--------------------------------------------------------------
@@ -147,30 +172,32 @@ end;
 //--------------------------------------------------------------
 procedure TfmMain.NewGame(AWidth, AHeight: integer);
 var
-  x,z: integer;
+  x,y,z: integer;
+  r: TRect;
 
 begin
-
+  AnimateWindow(pnlResult.Handle,300,AW_SLIDE or AW_HOR_NEGATIVE or AW_HIDE);
   btnNewGame.ImageIndex := 0;
 
   // initialize a new game
   SetLength(aGrid,0);
   SetLength(aShow,0);
 
-  xGridW := AWidth;
-  xGridH := AHeight;
+  FGridW := AWidth;
+  FGridH := AHeight;
 
-  SetLength(aGrid,xGridW * xGridH);
-  SetLength(aShow,xGridW * xGridH);
+  SetLength(aGrid,FGridW * FGridH);
+  SetLength(aShow,FGridW * FGridH);
 
   // +93 height, +26 width sizes the form perfectly.
-  SetBounds(Left,Top,(xGridW * CellDim) + 26,(xGridH * CellDim) + 93);
+  SetBounds(Left,Top,(FGridW * CellDim) + 26,(FGridH * CellDim) + 93);
 
   // assign the mines
   Randomize;
   x := 0;
-  xMines := MulDiv(Length(aGrid),MineRatePct,100);
-  while x < xMines do begin
+  FTotalMines := MulDiv(Length(aGrid),MineRatePct,100);
+  FMinesDisplay := FTotalMines;
+  while x < FTotalMines do begin
     z := Random(Length(aGrid)-1);
     if z > Length(aGrid) - 1 then
       Continue;
@@ -181,15 +208,37 @@ begin
     end;
   end;
 
+  // paint the game board
+  r := Rect(0,0,FGridW * CellDim,FGridH * CellDim);
+  FBmp.Width := r.Width;
+  FBmp.Height := r.Height;
+
+  with FBmp.Canvas do begin
+    Brush.Color := clBtnFace;
+    FillRect(r);
+    // paint the cells one at a time by offsetting the rect
+    r := Rect(0,0,CellDim-1,CellDim-1);
+    for y := 0 to FGridH - 1 do begin
+      for x := 0 to FGridW - 1 do begin
+        DrawEdge(Handle,r,EDGE_RAISED,BF_RECT);
+        OffsetRect(r,CellDim,0);
+      end;
+      OffsetRect(r,-(FGridW * CellDim),CellDim);
+    end;
+  end;
+
   SpinEdit1.SelLength := 0;
   SpinEdit2.SelLength := 0;
   HideCaret(SpinEdit1.Handle);
   HideCaret(SpinEdit2.Handle);
 
-  xMineClick := -1;
+  FMineClick := -1;
   dtStart := Now;
   bInGame := True;
+  Caption := 'MineSweeper by David Reed';
+
   PaintBox1.Invalidate;
+
 end;
 
 //--------------------------------------------------------------
@@ -206,7 +255,7 @@ end;
 //--------------------------------------------------------------
 procedure TfmMain.ShowAction(aCell: integer);
 begin
-  if (aCell <= Length(aShow) - 1) and not aShow[aCell] and (aGrid[aCell] < 9) then
+  if (aCell <= Length(aGrid) - 1) and not aShow[aCell] and (aGrid[aCell] < 9) then
     DoClickCell(aCell);
 end;
 
@@ -217,9 +266,9 @@ procedure TfmMain.AdjacentAction(c: integer; AProc: TAdjacentActionProc);
 var
   m,w,h: integer;
 begin
-  // use w and h to avoid typing xGridW over and over
-  w := xGridW;
-  h := xGridH;
+  // use w and h to avoid typing FGridW over and over
+  w := FGridW;
+  h := FGridH;
   // the mod determines left/right cell existence
   m := (c + 1) mod w;
   // check for left/right cells
@@ -248,22 +297,26 @@ end;
 //--------------------------------------------------------------
 // DoClickCell
 //--------------------------------------------------------------
-procedure TfmMain.DoClickCell(ACell: integer);
-var
-  x: integer;
+procedure TfmMain.DoClickCell(ACell: integer; AToggleFlag: boolean = False);
+const
+  FLAGVALUE: array[boolean] of integer = (1,-1);
 begin
-  // if the cell is a mine then show all mine cells, it's game over
-  if aGrid[ACell] = 9 then begin
-    xMineClick := ACell;
-    bInGame := False;
-    btnNewGame.ImageIndex := 1;
-    for x := 0 to Length(aShow) - 1 do begin
-      if aGrid[x] = 9 then
-        aShow[x] := True;
+  if AToggleFlag then begin
+    if not aShow[ACell] then begin
+      Inc(aGrid[ACell],FLAGVALUE[aGrid[ACell] > 9] * 10);
+      Inc(FMinesDisplay,FLAGVALUE[aGrid[ACell] > 9]);
+      ShowCell(ACell,True);
     end;
   end
-  else begin
-    aShow[ACell] := True;
+  // if the cell is a mine then show all mine cells, it's game over
+  else if aGrid[ACell] = 9 then begin
+    FMineClick := ACell;
+    for var x := 0 to Length(aGrid) - 1 do
+      if aGrid[x] = 9 then
+        ShowCell(x);
+  end
+  else if aGrid[ACell] < 9 then begin
+    ShowCell(ACell);
     if aGrid[ACell] = 0 then
       AdjacentAction(ACell,ShowAction);
   end;
@@ -275,7 +328,30 @@ end;
 function TfmMain.GetIndexFromMouseCoord(const Ax, Ay: integer): integer;
 begin
   with Point(Ax,Ay) do
-    Result := ((Y div CellDim) * xGridW) + (X div CellDim);
+    Result := ((Y div CellDim) * FGridW) + (X div CellDim);
+end;
+
+//--------------------------------------------------------------
+// ResultMessage
+//--------------------------------------------------------------
+procedure TfmMain.ResultMessage(AWinner: boolean);
+begin
+  if AWinner then begin
+    lblMessage.Caption := 'WOO HOO! You are a winner!';
+    Shape1.Brush.Color := $DDFFDD;
+    Shape1.Pen.Color := $00DD00;
+  end
+  else begin
+    lblMessage.Caption := 'BOOM! Better luck next time.';
+    Shape1.Brush.Color := $DDDDFF;
+    Shape1.Pen.Color := $0000DD;
+  end;
+  with pnlResult do begin
+    Width := 200;
+    BoundsRect := CenteredRect(Self.ClientRect,ClientRect);
+    Top := MulDiv(Self.Height,2,7);
+    AnimateWindow(Handle,300,AW_SLIDE or AW_HOR_NEGATIVE);
+  end;
 end;
 
 //--------------------------------------------------------------
@@ -284,25 +360,17 @@ end;
 procedure TfmMain.PaintBox1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
   if bInGame then begin
-    var z := GetIndexFromMouseCoord(X,Y);
-    if Button = TMouseButton.mbLeft then begin
-      // >= 10 means the user planted a flag in this cell
-      if aGrid[z] < 10 then
-        DoClickCell(z);
-    end
-    else if not aShow[z] then begin
-      // this toggles the flag for cells the user believes contain mines
-      // adding 10 is a way to preserve the original value of the cell
-      if (aGrid[z] < 10) and (xMines > 0) then begin
-        Dec(xMines);
-        Inc(aGrid[z],10);
-      end
-      else if (aGrid[z] > 9) then begin
-        Inc(xMines);
-        Dec(aGrid[z],10);
-      end;
-    end;
+    DoClickCell(GetIndexFromMouseCoord(X,Y),Button = TMouseButton.mbRight);
     Paintbox1.Invalidate;
+    if FMineClick >= 0 then begin
+      bInGame := False;
+      btnNewGame.ImageIndex := 1;
+      ResultMessage(False);
+    end
+    else if FCellsRemaining = FTotalMines then begin
+      bInGame := False;
+      ResultMessage(True);
+    end;
   end;
 end;
 
@@ -310,57 +378,60 @@ end;
 // PaintBox1Paint
 //--------------------------------------------------------------
 procedure TfmMain.PaintBox1Paint(Sender: TObject);
+begin
+  Paintbox1.Canvas.Draw(0,0,FBmp);
+end;
+
+//--------------------------------------------------------------
+// ShowCell
+//--------------------------------------------------------------
+procedure TfmMain.ShowCell(ACell: integer; AToggleFlag: boolean = False);
 var
-  x,y,z: integer;
+  x,y: integer;
   r,tr: TRect;
   s: string;
 begin
-  with PaintBox1.Canvas do begin
-    FillRect(Paintbox1.ClientRect);
-    // paint the cells one at a time by offsetting the rect
-    r := Rect(0,0,CellDim-1,CellDim-1);
-    for y := 0 to xGridH - 1 do begin
-      for x := 0 to xGridW - 1 do begin
-        // compute the cell number
-        z := (y * xGridW) + x;
-        if aShow[z] then begin
-          Pen.Color := clBtnShadow;
-          Brush.Color := clWhite;
-          if z = xMineClick then
-            Brush.Color := clRed;
-          Rectangle(r);
-          // 9 = mine
-          if aGrid[z] = 9 then begin
-            TransparentBlt(Handle,r.Left,r.Top,r.Width,r.Height,Image1.Canvas.Handle,0,0,r.Width,r.Height,ColorToRGB(clFuchsia));
-          end
-          else begin
-            s := ' ';
-            if aGrid[z] <> 0 then
-              s := aGrid[z].ToString;
-            with r do
-              tr := Rect(left,Top,Right,Top);
-            DrawText(Handle,PChar(s),Length(s),tr,DT_CENTER or DT_CALCRECT);
-            OffSetRect(tr,r.CenterPoint.X - tr.CenterPoint.X,r.CenterPoint.y - tr.CenterPoint.y);
-            Font.Color := CellFontColor[aGrid[z]];
-            DrawText(Handle,PChar(s),Length(s),tr,DT_CENTER or DT_VCENTER);
-          end;
-        end
-        else begin
-          Brush.Color := clBtnFace;
-          DrawEdge(Handle,r,EDGE_RAISED,BF_RECT);
-          if aGrid[z] > 9 then
-            TransparentBlt(Handle,r.Left,r.Top,r.Width,r.Height,Image1.Canvas.Handle,25,0,r.Width,r.Height,ColorToRGB(clFuchsia));
-        end;
-        OffsetRect(r,CellDim,0);
+
+  x := (ACell mod FGridW) * CellDim;
+  y := (ACell div FGridW) * CellDim;
+  r := Rect(x,y,x + CellDim-1,y + CellDim-1);
+
+  with FBmp.Canvas do begin
+    if AToggleFlag then begin
+      Brush.Color := clBtnFace;
+      // draw or erase the flag
+      if aGrid[ACell] > 9 then
+        TransparentBlt(Handle,r.Left,r.Top,r.Width,r.Height,Image1.Canvas.Handle,25,0,r.Width,r.Height,ColorToRGB(clFuchsia))
+      else begin
+        FillRect(r);
+        DrawEdge(Handle,r,EDGE_RAISED,BF_RECT);
       end;
-      OffsetRect(r,-(xGridW * CellDim),CellDim);
+    end
+    else begin
+      Pen.Color := clBtnShadow;
+      Brush.Color := clWhite;
+      if ACell = FMineClick then
+        Brush.Color := clRed;
+      Rectangle(r);
+      // 9 = mine
+      if aGrid[ACell] = 9 then begin
+        TransparentBlt(Handle,r.Left,r.Top,r.Width,r.Height,Image1.Canvas.Handle,0,0,r.Width,r.Height,ColorToRGB(clFuchsia));
+      end
+      else begin
+        s := ' ';
+        if aGrid[ACell] <> 0 then
+          s := aGrid[ACell].ToString;
+        with r do
+          tr := Rect(left,Top,Right,Top);
+        DrawText(Handle,PChar(s),Length(s),tr,DT_CENTER or DT_CALCRECT);
+        OffSetRect(tr,r.CenterPoint.X - tr.CenterPoint.X,r.CenterPoint.y - tr.CenterPoint.y);
+        Font.Color := CellFontColor[aGrid[ACell]];
+        DrawText(Handle,PChar(s),Length(s),tr,DT_CENTER or DT_VCENTER);
+      end;
+      aShow[ACell] := True;
+      Dec(FCellsRemaining);
     end;
   end;
-end;
-
-procedure TfmMain.SpinEdit1Change(Sender: TObject);
-begin
-  SpinEdit2.Value := SpinEdit1.Value;
 end;
 
 // I used this to render the grid in a TLabel first, to check my calculations
@@ -373,9 +444,9 @@ end;
 //  x,y,z: integer;
 //  s: string;
 //begin
-//  for y := 0 to xGridH - 1 do begin
-//    for x := 0 to xGridW - 1 do begin
-//      z := aGrid[x + (y * xGridW)];
+//  for y := 0 to FGridH - 1 do begin
+//    for x := 0 to FGridW - 1 do begin
+//      z := aGrid[x + (y * FGridW)];
 //      if z = 9 then
 //        s := s + 'B '
 //      else
