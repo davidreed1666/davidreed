@@ -2,7 +2,7 @@ object fmMain: TfmMain
   Left = 0
   Top = 0
   BorderIcons = [biSystemMenu]
-  BorderStyle = bsToolWindow
+  BorderStyle = bsDialog
   Caption = 'MineSweeper - David Reed'
   ClientHeight = 216
   ClientWidth = 238
