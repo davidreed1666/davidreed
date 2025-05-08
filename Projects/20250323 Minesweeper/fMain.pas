@@ -69,6 +69,7 @@ type
     pnlResult: TPanel;
     Shape1: TShape;
     lblMessage: TLabel;
+    Image2: TImage;
     procedure PaintBox1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure PaintBox1Paint(Sender: TObject);
     procedure aeIdle(Sender: TObject; var Done: Boolean);
